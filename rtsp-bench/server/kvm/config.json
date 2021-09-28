@@ -1,0 +1,24 @@
+{
+  "server": {
+    "http_port": ":8083",
+    "ice_servers": ["stun:192.168.0.25:3478"]
+  },
+  "streams": {
+    "KVMStream1": {
+      "on_demand": true,
+      "url": "rtsp://192.168.0.168/0"
+    },
+    "KVMStream2": {
+      "on_demand": true,
+      "url": "rtsp://192.168.0.168/1"
+    },
+    "KVMStream3": {
+      "on_demand": true,
+      "url": "rtsp://192.168.0.168/2"
+    },
+    "KVMStream4": {
+      "on_demand": true,
+      "url": "rtsp://192.168.0.168/3"
+    }
+  }
+}

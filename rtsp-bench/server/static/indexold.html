@@ -1,0 +1,128 @@
+<html lang="en">
+<head>
+    <title>rtsp-bench</title>
+</head>
+
+<body>
+<h3><a href="index.html">Video</a></h3>
+   <div class="col-md-6">
+      <br><video id="remoteVideos" controls="controls" autoplay class="m-0 p-0" style="width:100%; height:100%;object-fit:fill">等待初始化</video><br>
+    </div>
+<div>
+    <button onclick="window.doSignaling(true)"> ICE Restart (reconnect)</button>
+</div>
+
+<h3> Logs </h3>
+<div id="logs"></div>
+</body>
+<script src="./mqtt.min.js"></script>
+<script>
+    var mqttclient
+     // Create a client instance
+//var mqtt = require('mqtt')
+var options = {
+    //mqtt客户端的id，这里面应该还可以加上其他参数，具体看官方文档
+      clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8)
+    }
+    mqttclient  = mqtt.connect('ws://39.98.198.244:8083/mqtt',options)
+//var mqttclient  = mqtt.connect('ws://39.98.198.244:8083/mqtt',{"user":"admin","password":"password"})
+//var mqttclient  = mqtt.connect('wxs://test.mosquitto.org')
+
+mqttclient.on('connect', function () {
+    mqttclient.subscribe('answer/#', function (err) {
+        if (!err) {
+            //mqttclient.publish('Control', 'Hello mqtt')
+        }
+    })
+})
+
+mqttclient.on('message', function (topic, message) {
+  // message is Buffer
+    console.log(topic)
+    console.log(message)
+    
+    let input=JSON.parse(message)
+    console.log(input)
+    //let answer=base64Decode(input)
+    //console.log(base64Decode(answer))
+    //=topic.toString()
+    //if topicstr.includes("answer") {
+    pc.setRemoteDescription(input)
+    //}
+    //mqttclient.end()
+})   
+    //let pc = new RTCPeerConnection()
+    pc = new RTCPeerConnection({
+        iceServers: [
+            {
+                urls: 'stun:192.168.0.25:3478'
+            },
+           /* {
+                url: "turn:192.168.0.25:3478",
+                username: "kvm1",
+                credential: "kvm1"
+            }
+            */
+        ]
+    });
+
+    pc.addTransceiver('video')
+
+    let log = msg => {
+        document.getElementById('logs').innerHTML += msg + '<br>'
+    }
+    pc.oniceconnectionstatechange = () => log(pc.iceConnectionState)
+    pc.ontrack = function (event) {
+        let el = document.createElement(event.track.kind)
+        el.srcObject = event.streams[0]
+        el.autoplay = true
+        el.controls = true
+
+        document.getElementById('remoteVideos').appendChild(el)
+    }
+
+    window.doSignaling = iceRestart => {
+        pc.createOffer({iceRestart})
+            .then(offer => {
+                pc.setLocalDescription(offer)
+                var message ={
+                "seqid":2,
+                //"iceserver":"stun:stun.l.google.com:19302",
+                "videos":true,
+                "serial":true,
+                "ssh":true,
+                "iceserver":"stun:192.168.0.25:3478",
+                "offer":offer
+                };
+                mqttclient.publish('Control', JSON.stringify(message))
+            })
+    }
+            /*
+         * Javascript base64encode() base64加密函数
+           用于生成字符串对应的base64加密字符串
+         * 吴先成  www.51-n.com ohcc@163.com QQ:229256237
+         * @param string input 原始字符串
+         * @return string 加密后的base64字符串
+        */
+        function base64Encode(input){
+                var rv;
+                rv = encodeURIComponent(input);
+                rv = unescape(rv);
+                rv = window.btoa(rv);
+                return rv;
+        }
+        /*
+         * Javascript base64Decode() base64解密函数
+           用于解密base64加密的字符串
+         * 吴先成  www.51-n.com ohcc@163.com QQ:229256237
+         * @param string input base64加密字符串
+         * @return string 解密后的字符串
+        */
+        function base64Decode(input){
+                rv = window.atob(input);
+                rv = escape(rv);
+                rv = decodeURIComponent(rv);
+                return rv;
+        }
+</script>
+</html>

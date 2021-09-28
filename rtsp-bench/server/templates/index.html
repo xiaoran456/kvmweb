@@ -1,0 +1,43 @@
+{{define "index.html"}}
+<html lang="en">
+<head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+         <!-- Bootstrap CSS -->
+        <link href="https://cdn.staticfile.org/twitter-bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.staticfile.org/font-awesome/5.13.0/css/all.min.css" rel="stylesheet">
+        <!-- Optional JavaScript -->
+        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+        <script src="https://cdn.staticfile.org/jquery/3.4.1/jquery.min.js"></script>
+        <script src="https://cdn.staticfile.org/popper.js/1.16.1/umd/popper.min.js"></script>
+        <script src="https://cdn.staticfile.org/twitter-bootstrap/4.4.1/js/bootstrap.min.js"></script>
+        <link rel="stylesheet" href="https://cdn.staticfile.org/github-fork-ribbon-css/0.2.3/gh-fork-ribbon.min.css" />
+    
+    <div style="text-align:center;"><h2>远程维护系统</h2></div>
+    <hr style="background-color: #213F99;width: 100px;margin-left: auto;margin-right: auto;">
+    <div style="text-align:center;"><p class="lead">实时远程控制系统,支持视频监控、远程控制与SSH登录</p></div>
+
+</head>
+
+<body>
+
+<div>
+    <button type="button" class="btn btn-outline-dark" onclick="startSession()" id="connection_btn">远程连接<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="discovery()" id="discovery_btn">设备发现<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="mr2()" id="mr2_btn">内网映射<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="wol()" id="wol_btn">远程开机<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="getcmdproclist()" id="cmdproclist_btn">获取进程列表<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="switchrtspinfo1()" id="kvm1_btn">1920*1080<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="switchrtspinfo2()" id="kvm2_btn">1280*720<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="switchrtspinfo3()" id="kvm2_btn">640*480<i class="fas fa-sync"></i></button>
+    <button type="button" class="btn btn-outline-dark" onclick="getrtspinfo()" id="kvmsrclist_btn">获取分辨率列表<i class="fas fa-sync"></i></button>     
+    <button type="button" class="btn btn-outline-dark" onclick="FullScreen()" id="fullscreen_btn">fullscreen<i class="fas fa-sync"></i></button>                 
+    <table border="1"> 
+        <tbody id="table"> 
+    </table> 
+</div>
+</body>
+{{ template "cards" .}}
+</html>
+{{end}}

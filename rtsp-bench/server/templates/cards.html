@@ -1,0 +1,1294 @@
+{{define "cards"}} 
+<script src="https://cdn.staticfile.org/xterm/3.14.5/xterm.js"></script>
+<link href="https://cdn.staticfile.org/xterm/3.14.5/xterm.css" rel="stylesheet">
+<script src="https://cdn.staticfile.org/xterm/3.14.5/addons/fit/fit.js"></script>
+<link href="https://cdn.staticfile.org/xterm/3.14.5/addons/fullscreen/fullscreen.css" rel="stylesheet">
+<script src="https://cdn.staticfile.org/xterm/3.14.5/addons/fullscreen/fullscreen.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/mqtt/2.18.8/mqtt.min.js"></script>
+
+ 
+
+<div class="container"> 
+    <div class="row">
+		<div class="video-box">
+			<div class="video-main" >
+				<br><video id="remote-video"   autoplay class="m-0 p-0"  style="width:100%; height:100%;object-fit:fill">等待初始化</video><br>video><br>
+		    
+            </div>
+			<div class="video-control">
+			</div>
+		</div>
+
+        <div class="col-md-6">
+            <br>
+            <div class="card text-center">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" style="position: relative;">
+                        <li class="nav-item">
+                          <a class="nav-link active" onclick="sshShow()" id="ssh_nav">SSH</a>
+                        </li>
+                        <li class="nav-item">
+                          <a class="nav-link" onclick="controlShow()" id="control_nav">远程控制助手</a>
+                        </li>
+                        <button type="button" class="btn btn-light m-1 py-0" onclick="fullscreenOpen()" id="fullscreen_btn" style="position:absolute;right:0px;"><i class="fas fa-expand-arrows-alt"></i></button>
+                    </ul>
+                </div>
+                 <div class="card-body" id="control_body" hidden>
+                    <div class="input-group" style="width:50%;">
+                        <textarea id="controlInput" placeholder='e.g. {"device_id":"led_0","operate":"on"}'rows="5" style="width:80%"></textarea>
+                        <div class="input-group-append" style="float:left; 
+                        overflow:hidden;width:20%;"><button class="btn btn-outline-secondary" style="width:100%" type="button" id="control-send" onclick="controlSend()" disabled>Send</button></div>
+                    </div>
+                    <br>
+                    <div class="input-group" style="width:50%">
+                        <textarea id="control_output" style="width:80%" rows="5" readonly></textarea>
+                        <div class="input-group-append" style="float:left; 
+                        overflow:hidden;width:20%;"><button class="btn btn-outline-secondary" style="width:100%" type="button" disabled>Receive</button></div>
+                    </div>
+                </div>
+    
+                <div class="card-body m-0 p-0" id="ssh_body">
+                    <div class="container">
+                        <div id="terminal" style="height:320px;width:100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+/*
+    // NOTE: window.RTCPeerConnection is "not a constructor" in FF22/23
+    var RTCPeerConnection = //window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+    
+    if (RTCPeerConnection) (function () {
+    var rtc = new RTCPeerConnection({iceServers:[]});
+    if (window.mozRTCPeerConnection) {      // FF needs a channel/stream to proceed
+    rtc.createDataChannel('', {reliable:false});
+    };
+    
+    rtc.onicecandidate = function (evt) {
+    if (evt.candidate) grepSDP(evt.candidate.candidate);
+    };
+    rtc.createOffer(function (offerDesc) {
+    grepSDP(offerDesc.sdp);
+    rtc.setLocalDescription(offerDesc);
+    }, function (e) { console.warn("offer failed", e); });
+    
+    var addrs = Object.create(null);
+    addrs["0.0.0.0"] = false;
+    function updateDisplay(newAddr) {
+    if (newAddr in addrs) return;
+    else addrs[newAddr] = true;
+    var displayAddrs = Object.keys(addrs).filter(function (k) { return addrs[k]; });
+   // document.getElementById('list').textContent = displayAddrs.join(" or perhaps ") || "n/a";
+    }
+    
+    function grepSDP(sdp) {
+    var hosts = [];
+    sdp.split('\r\n').forEach(function (line) { // c.f. http://tools.ietf.org/html/rfc4566#page-39
+    if (~line.indexOf("a=candidate")) {     // http://tools.ietf.org/html/rfc4566#section-5.13
+    var parts = line.split(' '),        // http://tools.ietf.org/html/rfc5245#section-15.1
+    addr = parts[4],
+    type = parts[7];
+    if (type === 'host') updateDisplay(addr);
+    } else if (~line.indexOf("c=")) {       // http://tools.ietf.org/html/rfc4566#section-5.7
+    var parts = line.split(' '),
+    addr = parts[2];
+    updateDisplay(addr);
+    }
+    });
+    }
+    })(); else {
+    document.getElementById('list').innerHTML = "<code>ifconfig | grep inet | grep -v inet6 | cut -d\" \" -f2 | tail -n1</code>";
+    document.getElementById('list').nextSibling.textContent = "In Chrome and Firefox your IP should display automatically, by the power of WebRTCskull.";
+    }
+*/    
+    </script>
+
+
+<script>
+$(document).ready(function(){
+ 
+ $('#remote-video').bind('contextmenu',function() { return false; });
+})
+//var mqtt = require('mqtt');
+const DEVICE_IP     = 100;
+const DEVICE_ONVIF  = 200;
+const DEVICE_SNMP   = 300;
+const DEVICE_MODBUS = 400;
+const DEVICE_BACNET = 500;
+const DEVICE_CAN    = 600;
+const DEVICE_UPCA   = 700;
+//
+const CMDMSG_OFFER    = "offer"
+const CMDMSG_DISC     = "discovery"
+const CMDMSG_DISCRSP  = "discoveryrsp"
+
+const CMDMSG_WAKE     = "wake"
+const CMDMSG_UPDATE   = "update"
+const CMDMSG_MR2      = "mr2"
+const CMDMSG_PROCLIST = "cmdlist"
+const CMDMSG_PROCKILL = "killcmdproc"
+const CMDMSG_SWITCHKVMSCR = "switchrtspinfo"
+const CMDMSG_GETKVMRTSPINFOLIST ="getkvmrtspinfolist"
+const CMDMSG_RESPKVMRTSPINFOLIST = "respkvmrtspinfolist"
+var pc;
+var trackCache;
+var trackFlag = true;
+
+
+var mqttclient;
+//var MqttServer="ws://39.98.198.244:8083/mqtt";
+var MqttServer="ws://192.168.0.20:8083/mqtt";
+var ICEServer=[
+    {
+        url:"stun:192.168.0.20:3478"
+        //url:"stun:39.98.198.244:3478"
+        //url:"stun:stun.l.google.com:19302"
+ 
+    }, {
+        url:"turn:192.168.0.20:3478",
+        //url:"turn:39.98.198.244:3478",
+        username:"kvm",
+        credential:"123456"
+    }
+    ];
+var ICEServerkvm=[
+    {
+        //urls:["stun:stun.l.google.com:19302"]
+        //urls:["stun:39.98.198.244:3478"]
+        urls:["stun:192.168.0.20:3478"]
+    }, {
+        //urls:["turn:39.98.198.244:3478"],
+        urls:["turn:192.168.0.20:3478"],
+        username:"kvm",
+        credential:"123456"
+    }
+    ];
+
+var kvmstream="KVMStream1";
+var KVMRTSPADDR="rtsp://192.168.0.4/main_stream1"
+//var KVMRTSP="rtsp://192.168.0.168/3"
+//var turnserver=("turn:39.98.198.244:3478");
+//var mr2server="39.98.198.244"
+//var deviceID="50:9a:4c:3c:2d:b5" //ubuntu pc
+var deviceID="4E:7B:BF:71:D6:B4" //rv1126
+//var deviceID="00:0c:29:a2:70:8f" //pc debug//
+//var deviceID="00:13:14:01:D9:D5";//kvm device//
+
+var woldevices=new Array({"Ip":"192.168.0.10","Mac":"00:13:14:01:D9:D5"},{"Ip":"192.168.0.12","Mac":"00:13:14:01:D9:D5"});
+var subtopic="kvmdev/#";//+"/"+deviceID //Control/00:13:14:01:D9:D5
+var pubtopic="Control"+"/"+deviceID;
+var ICEServers
+
+//let ua = navigator.userAgent.toLowerCase(); // 这里将所有字母转小写
+//console.log(ua);
+switch (myBrowser()) {
+    case "Chrome":
+    case "Edge":
+        ICEServers=ICEServer
+        break;
+    case "FF":
+       ICEServers=ICEServerkvm
+        break;
+    default:        
+        alert('你的历览器不支持本功能')
+        break;
+
+}
+
+function getBrowsInfo(){
+
+if ((navigator.userAgent.match(/(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i))) {
+   alert('手机端')
+}else{
+   alert('PC端')
+}
+}
+function myBrowser(){
+    var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+    var isOpera = userAgent.indexOf("Opera") > -1; //判断是否Opera浏览器
+    var isIE = userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1 && !isOpera; //判断是否IE浏览器
+    var isFF = userAgent.indexOf("Firefox") > -1; //判断是否Firefox浏览器
+    var isSafari = userAgent.indexOf("Safari") > -1; //判断是否Safari浏览器
+    var isEdge = userAgent.indexOf("Edge") > -1; //判断是否Safari浏览器
+    var isChrome = userAgent.indexOf("Chrome") > -1; //判断是否Safari浏览器
+    if (isIE) {//
+        var IE5 = IE55 = IE6 = IE7 = IE8 = false;
+        var reIE = new RegExp("MSIE (\\d+\\.\\d+);");
+        reIE.test(userAgent);
+        var fIEVersion = parseFloat(RegExp["$1"]);
+        IE55 = fIEVersion == 5.5;
+        IE6 = fIEVersion == 6.0;
+        IE7 = fIEVersion == 7.0;
+        IE8 = fIEVersion == 8.0;
+        if (IE55) {
+            return "IE55";
+        }
+        if (IE6) {
+            return "IE6";
+        }
+        if (IE7) {
+            return "IE7";
+        }
+        if (IE8) {
+            return "IE8";
+        }
+    }else if (isFF) {
+        return "FF";
+    }else if (isOpera) {
+        return "Opera";
+    }else if (isEdge) {
+        return "Edge";
+    }else if (isChrome) {
+        return "Chrome";
+    }
+    
+}
+
+function startSession(){
+    initMqtt();
+    initTerm();
+    //initWebsocket();
+}
+
+function stopSession(){
+    //wsClient.close();
+    bWebrtc=false
+    endMqtt();
+    btnClose();
+}
+var bWebrtc=false
+function initWebRTC(){
+    if (bWebrtc==true) return
+    bWebrtc=true
+    pc = new RTCPeerConnection({
+        iceServers: ICEServers//ICEServer
+        /*[
+            {
+                urls: stunserver//'stun:192.168.0.25:3478'
+            }, {
+                url: turnserver,//"turn:stun:39.98.198.244:3478",
+                username: "admin",
+                credential: "admin"
+            }
+        ]
+        */
+    });
+    pc.addTransceiver('video')
+    pc.ontrack = function (event) {
+        console.log("ontrack")
+    
+       // if(trackFlag){
+           trackCache = event.track;
+        //   trackFlag = false;
+        //}else{
+            var el = document.getElementById('remote-video')
+            resStream = event.streams[0].clone()
+            resStream.addTrack(trackCache)
+            el.srcObject = resStream
+            KeyMouseCtrl()
+       /*
+            let el = document.createElement(event.track.kind)
+            el.srcObject = event.streams[0]
+            el.autoplay = true
+            el.controls = true
+            document.getElementById('remote-video').appendChild(el)
+       */
+        // }
+       
+    }
+
+    initSSH();
+    initControl();
+    //initSerial();
+    pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
+    /*
+    pc.createOffer({iceRestart})
+            .then(offer => {
+                pc.setLocalDescription(offer)
+                var message ={
+                "seqid":2,
+                //"iceserver":"stun:stun.l.google.com:19302",
+                "iceserver":"stun:39.98.198.244:3478",
+                "offer":offer
+                };
+                mqttclient.publish('Control', JSON.stringify(message))
+            })
+            type Message struct {
+	SeqID      uint64                    `json:"seqid"`
+	Video      bool                      `json:"video"`
+	Serial     bool                      `json:"serial"`
+	SSH        bool                      `json:"ssh"`
+	IceServer  string                    `json:"icesever"`
+	RtcSession webrtc.SessionDescription `json:"offer" mapstructure:"offer"`
+}
+    */        
+   
+    pc.onicecandidate = event => {
+        if (event.candidate === null) {
+            //pc.setLocalDescription(offer)
+            var msgdata = new Object();
+            //var localSessionDescription =btoa(JSON.stringify(pc.localDescription));
+            
+            msgdata["seqid"]=2;
+            msgdata["video"]=true
+            msgdata["serial"]=true
+            msgdata["ssh"]=true
+           // iceserver=new Array(stunserver);
+            //iceserver.appendChild(tunserver);
+            msgdata["iceserver"]=ICEServerkvm;
+            msgdata["offer"]=pc.localDescription//localSessionDescription;
+            msgdata["rtspaddr"]=KVMRTSPADDR
+            msgdata["suuid"]=kvmstream
+            //console.log(content)
+            //mqttclient.publish('Control', JSON.stringify(content))
+            
+            //for websocket
+            //var localSessionDescription = btoa(JSON.stringify(pc.localDescription));
+   
+            var content = new Object();
+            content["type"]=CMDMSG_OFFER;
+            content["msg"]="webrtc offer";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]=btoa(JSON.stringify(msgdata));
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+   
+            //wsClient.send(JSON.stringify(content));
+            console.log("localDescription:",btoa(JSON.stringify(pc.localDescription)));
+        }
+    }
+
+    // Offer to receive 1 audio, and 1 video tracks
+    //pc.addTransceiver('audio', {'direction': 'sendrecv'})
+    //pc.addTransceiver('video', {'direction': 'sendrecv'})
+    pc.createOffer().then(d => pc.setLocalDescription(d)).catch(log)
+}
+function getrtspinfo(){
+            var content = new Object();
+            content["type"]=CMDMSG_GETKVMRTSPINFOLIST;
+            content["msg"]="get rtsp info ";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]="";
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+}
+function switchrtspinfo1(){
+    switchrtspinfo("KVMStream1","")
+}
+function switchrtspinfo2(){
+    switchrtspinfo("KVMStream2","")
+}
+function switchrtspinfo3(){
+    switchrtspinfo("KVMStream3","")
+}
+function switchrtspinfo(suuid,url){
+            var msgdata = new Object();
+
+            msgdata["Suuid"]=suuid
+            msgdata["URL"]=url
+            var content = new Object();
+            content["type"]=CMDMSG_SWITCHKVMSCR;
+            content["msg"]="switch rtspinfo ";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]=btoa(JSON.stringify(msgdata));
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+}
+function killproc(procid){
+            var content = new Object();
+            content["type"]=CMDMSG_PROCKILL;
+            content["msg"]="kill proc ";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]=procid;
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+}
+function getcmdproclist(){
+            var content = new Object();
+            content["type"]=CMDMSG_PROCLIST;
+            content["msg"]="get proc list";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]="";
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+}
+function mr2(){
+	        var msgdata = new Object();
+            msgdata["Arg"]="client -s "+mr2server + ":9999 -p xxd -serverPort 8888 -c 192.168.0.10:8080";
+            msgdata["ServerAddr"]=mr2server;
+            msgdata["Password"]="xxd";
+            msgdata["ExposePort"]=8888;
+            msgdata["ExposeAddr"]="192.168.0.10";
+            var content = new Object();
+            content["type"]=CMDMSG_MR2;
+            content["msg"]="mr2 expose";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]=btoa(JSON.stringify(msgdata));
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+}
+function discovery(){
+            initMqtt();
+	        var msgdata = new Object();
+            msgdata["DevType"]=DEVICE_IP;
+            var content = new Object();
+            content["type"]=CMDMSG_DISC;
+            content["msg"]="disc device in net";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]=btoa(JSON.stringify(msgdata));
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+}
+function wol(){
+	        var msgdata = new Object();
+            msgdata["Devices"]=woldevices;
+
+            var content = new Object();
+            content["type"]=CMDMSG_WAKE;
+            content["msg"]="wol for device in net";
+            content["device_id"]=deviceID//$("#dropdown_menu_link").attr("value");
+            content["data"]=btoa(JSON.stringify(msgdata));
+            mqttclient.publish(pubtopic, JSON.stringify(content));
+}
+function log(msg){
+    $("#loger").html(msg);
+}
+
+function initMqtt(){
+    /*
+    var options = {
+    //mqtt客户端的id，这里面应该还可以加上其他参数，具体看官方文档
+      clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),
+      //user: 'admin',
+      //password: 'password'
+    }
+    */
+   var ClientId = 'mqttjs_' + Math.random().toString(16).substr(2, 8)
+    mqttclient  = mqtt.connect(MqttServer,
+    {
+		clientId: ClientId,//unescape(MACAddr)+unescape(IPAddr),//'brows_xxd',
+		username: 'admin',
+		password: 'password'
+	});
+    mqttclient.on('connect', function () {
+       mqttclient.subscribe(subtopic, function (err) {
+        if (!err) {
+            //mqttclient.publish('Control', 'Hello mqtt')
+        //成功连接到服务器
+        console.log("connected to server");
+        initWebRTC();
+        }
+       })
+   })
+
+    mqttclient.on('message', function (topic, message) {
+  // message is Buffer
+      console.log(topic)
+      console.log(message)
+    
+    let input=JSON.parse(message)
+    console.log(input)
+    //console.log("setRemoteDescription")
+    //var obj = JSON.parse(e.data);
+    switch(input.type){
+	case "error":
+	   console.log(input.msg);
+       stopSession();
+	   break;
+    case "answer":
+       var remoteSessionDescription = input.data;
+       if (remoteSessionDescription === '') {
+        alert('Session Description must not be empty');
+       }
+       try {
+        let answer=JSON.parse(atob(remoteSessionDescription))
+        console.log(answer)
+        pc.setRemoteDescription(new RTCSessionDescription(answer));
+        btnOpen();
+       } catch (e) {
+        alert(e);
+       }
+	   break;
+    case CMDMSG_DISCRSP:
+	   console.log(JSON.parse(atob(input.data)));
+	   getDevices(JSON.parse(atob(input.data)))
+	   break;
+	case "heart":
+	    console.log(JSON.parse(atob(input.data)));
+		break;
+	case "cmdFeedback":	
+	    console.log(JSON.parse(atob(input.data)));
+		break;
+	case CMDMSG_PROCLIST:	
+	    console.log(JSON.parse(atob(input.data)));
+		break;
+    case CMDMSG_RESPKVMRTSPINFOLIST:
+        console.log(JSON.parse(atob(input.data)));
+		break;
+		}
+	})   
+}
+function endMqtt(){
+    mqttclient.end()
+}
+function getDevices(devicelist){
+   var len=eval(devicelist.Devices).length;
+    var _table = document.getElementById("table"); 
+	var _row; 
+	var _cell; 
+	 for(var i=0;i<len;i++){
+	  _row = document.createElement("tr"); 
+	  document.getElementById("table").appendChild(_row); 
+	  _cell = document.createElement("td"); 
+	  _cell.onclick= function(){getColumnDetail(this)}; //为每个单元格增加单击事件 
+	  _cell.innerText = devicelist.Devices[i].Ip; 
+	  _row.appendChild(_cell); 
+	  _cell = document.createElement("td"); 
+	  _cell.onclick= function(){getColumnDetail(this)}; //为每个单元格增加单击事件 
+	  _cell.innerText = devicelist.Devices[i].Mac; 
+	  _row.appendChild(_cell); 
+     //setTable(i,devicelist.Devices[i].Ip)
+
+ 	}
+}
+
+</script>
+<script> 
+	function getColumnDetail(column){ 
+	column.style.color = "blue"; //将被点击的单元格设置为蓝色 
+	alert(column.innerHTML); //弹出被点单元格里的内容 
+	} 
+	
+	function setTable(trLineNumber,tdData){ 
+	var _table = document.getElementById("table"); 
+	var _row; 
+	var _cell; 
+	for (var i = 0; i < trLineNumber; i++) { 
+	_row = document.createElement("tr"); 
+	document.getElementById("table").appendChild(_row); 
+	for(var j = 0; j < tdData.length; j++) { 
+	_cell = document.createElement("td"); 
+	_cell.onclick= function(){getColumnDetail(this)}; //为每个单元格增加单击事件 
+	_cell.innerText = tdData[j]; 
+	_row.appendChild(_cell); 
+	} 
+	
+	} 
+	} 
+</script>
+<script>
+var sshDC;
+
+function initSSH(){
+    sshDC = pc.createDataChannel("SSH");
+        
+    term.clear();
+    term.writeln("welcome to use WebRTC Remote Control");
+    
+    sshDC.onopen = function () {
+        sshHostInput();
+		console.log("datachannel open");
+    };
+
+    sshDC.onmessage = function (event) {
+        if(event.data != "success"){
+            sshHostInput();
+            console.log(event.data);
+        }else{
+            term.clear();
+            sshDC.send("resize "+term.cols+" "+term.rows);
+            console.log("success resize "+term.cols+" "+term.rows);
+            sshDC.onmessage = function (event) {
+                inputCount = 0;
+                term.write('\r\n');
+                term.write(ab2str(event.data));
+                console.log(ab2str(event.data));
+            };
+        }
+    };
+
+    sshDC.onclose = function () {
+        console.log("datachannel close");
+    };
+}
+
+function sshShow(){
+    $("#ssh_body").attr("hidden",false);
+    $("#fullscreen_btn").attr("hidden",false)
+    $("#control_body").attr("hidden",true);
+    $("#serial_body").attr("hidden",true);
+    $("#ssh_nav").addClass("active");
+    $("#control_nav").removeClass("active");
+    $("#serial_nav").removeClass("active");
+}
+</script>
+
+<script>
+var controlDC;
+
+function initControl(){
+    controlDC = pc.createDataChannel("Control");
+
+    controlDC.onmessage = function (event) {
+        console.log("received: " + event.data);
+        $("#control_output").val(event.data);
+    };
+
+    controlDC.onopen = function () {
+        $("#control-send").attr("disabled", false);
+        console.log("datachannel open");
+    };
+
+    controlDC.onclose = function () {
+        $("#control-send").attr("disabled", true);
+        console.log("datachannel close");
+    };
+}
+
+function controlSend(){
+    var msg = $("#controlInput").val();
+    controlDC.send(msg);
+}
+var serialDC;
+var bserialopen=false
+function initSerial(){
+    serialDC = pc.createDataChannel("Serial");
+
+    serialDC.onmessage = function (event) {
+        console.log("received: " + event.data);
+        //$("#control_output").val(event.data);
+        text=JSON.parse(atob(event.data));
+        console.log("serial msg: " + text);
+
+        OnSerialMsg(text);
+    };
+
+    serialDC.onopen = function () {
+        console.log("datachannel open");
+        bserialopen=true;
+
+    };
+
+    serialDC.onclose = function () {
+        $("#btn_close").attr("disabled", true);
+        $("#btn_open").attr("disabled", false);
+        $("#btn_send").attr("disabled", true);
+        bserialopen=false;
+        console.log("datachannel close");
+    };
+}
+function serialOpen(){
+  if (bserialopen==true){
+    var opt=new Object();
+    opt.portName = $('#portName option:selected').text();
+	opt.baudRate = parseInt($('#baudRate option:selected').text());
+	tmp = $('#parityMode option:selected').text();
+	switch(tmp) {
+		case "none":
+			opt.parityMode = 0;
+			break;
+		case "odd":
+			opt.parityMode = 1;
+			break;
+		case "even":
+			opt.parityMode = 2;
+			break;
+	}
+	opt.dataBits = parseInt($('#dataBits option:selected').text());
+	opt.stopBits = parseInt($('#stopBits option:selected').text());
+    var optmsg=new Object();
+    serialsend({
+        type: "openserial",
+       data: JSON.stringify(opt),
+    })
+  }
+}
+//串口发送
+function serialSend() {
+	console.log(document.getElementById("sendText").value.length);
+	if(document.getElementById("sendText").value.length == 0) {
+		alert("发送内容不能为空");
+		return;
+	}
+
+	console.log(document.getElementById("hexOption").checked);
+	hexOption=document.getElementById("hexOption").checked;
+	var text = {
+			type: 0,
+			data: document.getElementById("sendText").value
+	};
+            //是否选中16进制
+    if(hexOption){
+     	text.type=1;	
+    }else{
+     	text.type=0;
+    }
+    serialsend({
+       type: "serialdata",
+       data: JSON.stringify(text),
+    });
+}
+//关闭串口
+function serialClose() {
+    serialsend({
+       type: "closeserial",
+       data: "",
+    });
+}
+function serialsend(data) {
+ // console.log(data)
+ serialDC.send(JSON.stringify(data));
+} 
+        //清空接收区
+function receiverClear() {
+	console.log("clear");
+	document.getElementById("receiverText").value = "";
+}
+function OnSerialMsg(serialdata){
+  switch(serialdata.Topic){
+     case "serialdata":
+         text=serialdata.Msg//JSON.parse(atob(serialdata.Msg));
+         document.getElementById("receiverText").value = document.getElementById("receiverText").value+text ;
+         break;
+     case "serialopened":
+        $("#btn_close").attr("disabled", false);
+        $("#btn_open").attr("disabled", true);
+        $("#btn_send").attr("disabled", false);
+        document.getElementById("receiverText").value = "串口已打开"
+        break;
+     case "openserial":
+        text=serialdata.Msg;
+        console.log(text);
+        $("#btn_close").attr("disabled", false);
+        $("#btn_open").attr("disabled", true);
+        $("#btn_send").attr("disabled", false);
+        document.getElementById("receiverText").value = "串口已打开"  ;     
+        break;
+     case "CloseSerial":
+        text=serialdata.Msg;
+        console.log(text);
+        $("#btn_close").attr("disabled", true);
+        $("#btn_open").attr("disabled", false);
+        $("#btn_send").attr("disabled", true);
+        document.getElementById("receiverText").value = "串口已关闭"  
+        break;     
+     case "serialclosed":
+        $("#btn_close").attr("disabled", false);
+        $("#btn_open").attr("disabled", true);
+        $("#btn_send").attr("disabled", false);
+        document.getElementById("receiverText").value = "串口已关闭"
+        break;
+     case "serialsendresp":
+         text=serialdata.Msg//JSON.parse(atob(serialdata.Msg));
+         $('#serialStatus').innerHTML = text;
+         break;  
+     case "SerialPortList":
+         text=serialdata.Msg//JSON.parse(atob(serialdata.Msg));
+         //removeSelectAll('portName')
+         l=text.split(/[\s\n]/);
+         obj=document.getElementById("portName");
+         obj.options.length=0;
+         m=l.length;
+         for( let i=0; i<m; i++){
+            obj.add(new Option(l[i],l[i]))
+         console.log(l[i])
+         break;
+         }
+
+  }
+}
+function removeSelectAll(portName){ var obj=document.getElementById(portName); obj.options.length=0; } 
+function controlSend(){
+    var msg = $("#controlInput").val();
+    controlDC.send(msg);
+}
+
+function controlShow(){
+    $("#ssh_body").attr("hidden",true);
+    $("#serial_body").attr("hidden",true);
+    $("#fullscreen_btn").attr("hidden",true)
+    $("#control_body").attr("hidden",false);
+    $("#ssh_nav").removeClass("active");
+    $("#serial_nav").removeClass("active");
+    $("#control_nav").addClass("active");
+}
+function serialShow(){
+    $("#ssh_body").attr("hidden",true);
+    $("#control_body").attr("hidden",true);
+    $("#fullscreen_btn").attr("hidden",true)
+    $("#serial_body").attr("hidden",false);
+    $("#ssh_nav").removeClass("active");
+    $("#control_nav").removeClass("active");
+    $("#serial_nav").addClass("active");
+}
+
+
+</script>
+
+<script>
+var term;
+var input = '';
+var pwTarget = false;
+var userTarget = false;
+var sshHostTarget = false;
+var inputCount = 0;
+//进入全屏
+
+
+
+
+
+function FullScreen() {
+//$("#fullscreen_btn").text("exit fullscreen");
+//var myPics = document.getElementById("remote-video"); // Add the event listeners for 
+var ele = document.getElementById("remote-video");
+
+if (ele.requestFullscreen) {
+
+ele.requestFullscreen();
+
+} else if (ele.mozRequestFullScreen) {
+
+ele.mozRequestFullScreen();
+
+} else if (ele.webkitRequestFullScreen) {
+
+ele.webkitRequestFullScreen();
+//var videoControls = document.getElementById("videoControls");
+//videoControls.style.opacity = 1;
+
+}
+//var ele1 = document.querySelector("remote-video");
+//ele.controls.style.opacity=false;
+ele.controls = false;
+//('#remote-video')[0].removeAttribute("controls");
+//('#remote-video').controls = false;
+//if (ele.hasAttribute("controls")) { ele.removeAttribute("controls");}
+}
+
+//退出全屏
+
+function exitFullscreen() {
+
+var de = document.getElementById("remote-video");
+
+if (de.exitFullscreen) {
+
+de.exitFullscreen();
+
+} else if (de.mozCancelFullScreen) {
+
+de.mozCancelFullScreen();
+
+} else if (de.webkitCancelFullScreen) {
+
+de.webkitCancelFullScreen();
+
+}
+
+}
+
+function initTerm(){
+    Terminal.applyAddon(fit);  // Apply the `fit` addon
+    Terminal.applyAddon(fullscreen);
+
+    let terminalContainer = document.getElementById('terminal');
+    term = new Terminal({cursorBlink: true})
+
+    term.open(terminalContainer);
+    term._initialized = true;
+    term.fit();
+
+    term.writeln("welcome to use WebRTC Remote Control");
+
+    term.on("paste", function(data) {
+      term.write(data);
+    });
+
+    term.on("resize", function(ev){
+        console.log("resize: cols:",term.cols," rows:",term.rows);
+        sshDC.send("resize "+term.cols+" "+term.rows);
+    });
+
+    term.on("key", function(key,ev){
+        if(sshHostTarget == true){
+            if(ev.keyCode === 13){
+                term.write('\r\n');
+                sshDC.send(input);
+                input = '';
+				userInput();
+            }else if (ev.keyCode === 8) {
+                if (input.length > 0) {
+                    term.write('\b \b');
+                    input = input.substr(0, input.length - 1);
+                }
+            }else{
+                input += key;
+                term.write(key);
+            }
+        }else if(userTarget == true){
+            if(ev.keyCode === 13){
+                term.write('\r\n');
+                sshDC.send(input);
+                input = '';
+				passwordInput();
+                
+            }else if (ev.keyCode === 8) {
+                if (input.length > 0) {
+                    term.write('\b \b');
+                    input = input.substr(0, input.length - 1);
+                }
+            }else{
+                input += key;
+                term.write(key);
+            }
+        }else if(pwTarget ==true){
+            if(ev.keyCode === 13){
+                term.write('\r\n');
+                sshDC.send(input);
+                input = '';
+				pwTarget =false
+				//sshHostInput();
+                
+            }else if (ev.keyCode === 8) {
+                if (input.length > 0) {
+                    term.write('\b \b');
+                    input = input.substr(0, input.length - 1);
+                }
+            }else{
+                input += key;
+                term.write("*");
+            }
+		}else{
+            sshDC.send(key);
+            if(ev.keyCode === 8){
+                if(inputCount > 0){
+                    inputCount = inputCount - 1;
+                    term.write('\b \b');
+                }
+            }else{
+                term.write(key);
+                inputCount = inputCount + 1;
+            }
+        }
+    })
+}
+function btnOpen(){
+    $("#connection_btn").text("断开连接");
+    $("#connection_btn").removeClass("btn_primary");
+    $("#connection_btn").addClass("btn-danger");
+    $("#connection_btn").attr("onclick","stopSession()");
+    FullScreen()
+}
+function btnClose(){
+    $("#connection_btn").text("远程连接");
+    $("#connection_btn").removeClass("btn-danger");
+    $("#connection_btn").addClass("btn_primary");
+    $("#connection_btn").attr("onclick","startSession()");
+    //$("#connection_btn").addClass("disabled");
+    //$("#connection_btn").attr("disabled", true); 
+    $("#control-send").attr("disabled", true);
+}
+function userInput(){
+	sshHostTarget = false;
+    term.writeln("~$ user:");
+    term.write("~$ ");
+    userTarget = true;
+}
+
+function passwordInput(){
+    userTarget = false;
+    term.writeln("~$ passward:");
+    term.write("~$ ");
+    pwTarget = true;
+}
+function sshHostInput(){
+    term.writeln("~$ sshServer:");
+    term.write("~$ ");
+    sshHostTarget = true;
+}
+function ab2str(buf) {
+    return String.fromCharCode.apply(null, new Uint8Array(buf));
+}
+
+function fullscreenOpen(){
+    var ele = document.getElementById("terminal");
+
+if (ele.requestFullscreen) {
+
+ele.requestFullscreen();
+
+} else if (ele.mozRequestFullScreen) {
+
+ele.mozRequestFullScreen();
+
+} else if (ele.webkitRequestFullScreen) {
+
+ele.webkitRequestFullScreen();
+
+}
+    /*
+    $("#fullscreen_exit").attr("hidden",false)
+    term.toggleFullScreen();
+    term.resize(parseInt($(window).width()/9),parseInt($(window).height()/18));
+    term.scrollToBottom();
+    */
+}
+
+function fullscreenClose(){
+
+var de = document.getElementById("terminal");
+
+if (de.exitFullscreen) {
+
+de.exitFullscreen();
+
+} else if (de.mozCancelFullScreen) {
+
+de.mozCancelFullScreen();
+
+} else if (de.webkitCancelFullScreen) {
+
+de.webkitCancelFullScreen();
+
+}
+    /*
+    $("#fullscreen_exit").attr("hidden",true)
+    term.toggleFullScreen();
+    term.fit();  
+    term.scrollToBottom(); 
+    */
+}
+</script>
+<script>
+var controlHID;
+
+function initControlHID(){
+    controlHID = pc.createDataChannel("HID");
+    //HidMap()
+}
+
+function send(data) {
+ // console.log(data)
+  controlHID.send(JSON.stringify(data));
+} 
+
+function logKey(e) {
+  let funckey=(e.ctrlKey==true?1:0)|(e.shiftKey==true?1<<1:0)|(e.altKey==true?1<<2:0)
+  console.log(e.keyCode);
+  console.log(funckey);
+  send({
+    type: "KEYDOWN",
+    data: JSON.stringify({
+     funcKey: funckey,
+     keyCode: e.keyCode,//HidMap.fromHidList(e.keyCode),
+    })
+  });
+  /*
+  if (e.preventDefault)
+      e.preventDefault();
+  if (e.stopPropagation)
+      e.stopPropagation();
+  e.cancelBubble = true;
+  e.returnValue = false;
+  return false;
+  */
+}
+
+
+function preventScroll(id){
+        var _this = document.getElementById(id);
+        if(navigator.userAgent.indexOf("Firefox")>0){
+            _this.addEventListener('DOMMouseScroll',function(e){
+                _this.scrollTop += e.detail > 0 ? 60 : -60;   
+                e.preventDefault();
+            },false); 
+        }else{
+            _this.onmousewheel = function(e){   
+                e = e || window.event;   
+                _this.scrollTop += e.wheelDelta > 0 ? -60 : 60;   
+                return false;
+            };
+        }
+        return this;
+}
+
+
+//MOUSE_MOVE 0,MOUSE_DOWN 1,MOUSE_UP 2,KEY_DOWN 0 ,KEY_UP 1
+function KeyMouseCtrl()
+{
+//var vol = 0.1;//每次减少
+initControlHID()
+ //var video = document.getElementById("remote-video"); 
+var keyboardenable=true
+var mouseenable=true
+var bmousedown=0
+if (keyboardenable){
+	document.addEventListener("keydown", function (event) {
+        logKey(event);
+        return false;
+    });
+}
+
+document.addEventListener("mousewheel", function (event) {
+    console.log("mouse wheel",event.wheelDelta ? event.wheelDelta : event.detail) ;
+    return false;//event.preventDefault();
+});
+
+document.addEventListener("contextmenu", function (event) {
+
+  return event.preventDefault();
+});
+
+document.addEventListener("DOMMouseScroll", function (event) {
+    console.log("mouse wheel",-event.wheelDelta*40 ? event.wheelDelta : event.detail,event.wheelDelta || (-event.detail * 40)) ;
+    return false;//event.preventDefault();
+});
+
+var myPics = document.getElementById("remote-video"); // Add the event listeners for 
+
+//mousedown, mousemove, and mouseup
+if (mouseenable) {
+myPics.addEventListener("mousemove", function (e) {
+  x = e.offsetX;
+  y = e.offsetY;
+  b = e.button;
+  boundRect = myPics.getBoundingClientRect();
+  console.log("mouse move",bmousedown,e.offsetX, e.offsetY);
+  send({
+    type: "MOUSEMOVE",
+    data: JSON.stringify({
+      isLeft: e.button == 0 ? 1 : 0,
+      isMiddle: e.button == 1 ? 1 : 0,
+      isRight: e.button == 2 ? 1 : 0,
+      isDown: bmousedown,
+      x: e.offsetX,
+      y: e.offsetY,
+      width: Math.round(boundRect.width),
+      height: Math.round(boundRect.height)
+    })
+  });
+});
+
+myPics.addEventListener("mouseup", function (e) {
+  x = e.offsetX;
+  y = e.offsetY;
+  b = e.button;
+  bmousedown=0
+  boundRect = myPics.getBoundingClientRect();
+  console.log("mouseup",bmousedown,e.offsetX, e.offsetY);
+  send({
+    type: "MOUSEUP",
+    data: JSON.stringify({
+      isLeft: e.button == 0 ? 1 : 0,
+      isMiddle: e.button == 1 ? 1 : 0,
+      isRight: e.button == 2 ? 1 : 0,
+	  isDown: bmousedown,
+      x: e.offsetX,
+      y: e.offsetY,
+      width: Math.round(boundRect.width),
+      height: Math.round(boundRect.height)
+    })
+  });
+});
+myPics.addEventListener("mousedown", function (e) {
+  x = e.offsetX;
+  y = e.offsetY;
+  boundRect = myPics.getBoundingClientRect();
+  console.log("mousedown",e.offsetX, e.offsetY);
+  bmousedown=1
+  send({
+    type: "MOUSEDOWN",
+    data: JSON.stringify({
+      isLeft: e.button == 0 ? 1 : 0,
+      isMiddle: e.button == 1 ? 1 : 0,
+      isRight: e.button == 2 ? 1 : 0,
+      isDown: 1,
+      x: e.offsetX,
+      y: e.offsetY,
+      width: Math.round(boundRect.width),
+      height: Math.round(boundRect.height)
+    })
+  });
+});
+
+myPics.addEventListener("DOMMouseScroll", function (e) {
+  console.log("wheel",event.wheelDelta || (-event.detail * 40));
+  boundRect = myPics.getBoundingClientRect();
+  console.log(e.offsetX, e.offsetY);
+  send({
+    type: "MOUSEWHEEL",
+    data: JSON.stringify({
+      isLeft: e.button == 0 ? 1 : 0,
+      isMiddle: e.button == 1 ? 1 : 0,
+      isRight: e.button == 2 ? 1 : 0,
+      isDown: 1,
+      x: e.offsetX,
+      y: e.offsetY,
+      width: Math.round(boundRect.width),
+      height: Math.round(boundRect.height),
+      wheel: event.wheelDelta || (-event.detail * 40)
+    })
+  });
+  if (e.preventDefault)
+      e.preventDefault();
+  if (e.stopPropagation)
+      e.stopPropagation();
+  e.cancelBubble = true;
+  e.returnValue = false;
+  return false;
+});
+
+myPics.addEventListener("mousewheel", function (e) {
+  console.log("wheel",e.wheelDelta, e.detail);
+  boundRect = myPics.getBoundingClientRect();
+  console.log(e.offsetX, e.offsetY);
+  send({
+    type: "MOUSEWHEEL",
+    data: JSON.stringify({
+      isLeft: e.button == 0 ? 1 : 0,
+      isMiddle: e.button == 1 ? 1 : 0,
+      isRight: e.button == 2 ? 1 : 0,
+      isDown: 1,
+      x: e.offsetX,
+      y: e.offsetY,
+      width: Math.round(boundRect.width),
+      height: Math.round(boundRect.height),
+      wheel: e.wheelDelta ? e.wheelDelta : e.detail
+    })
+  });
+  if (e.preventDefault)
+      e.preventDefault();
+  if (e.stopPropagation)
+      e.stopPropagation();
+  e.cancelBubble = true;
+  e.returnValue = false;
+  return false;
+});
+
+myPics.addEventListener("keydown", function (e) {
+  e.preventDefault();
+  return false;
+});
+myPics.addEventListener("keyup", function (e) {
+  e.preventDefault();
+  return false;
+});
+
+}
+myPics.addEventListener("click", function (e) {
+  e.preventDefault();
+  return false;
+});
+/*
+myPics.addEventListener("keydown", function (e) {
+  //var e = event || window.event || arguments.callee.caller.arguments[0];  
+  logKey(e)
+    //e.preventDefault();
+  return false;
+});
+myPics.addEventListener("keyup", function (e) {
+  e.preventDefault();
+  return false;
+});
+*/
+}
+
+</script>
+{{end}}

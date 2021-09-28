@@ -1,0 +1,19 @@
+{{define "index.html"}}
+<html lang="en">
+<head>
+    <div style="text-align:center;"><h2>远程维护系统</h2></div>
+    <hr style="background-color: #213F99;width: 100px;margin-left: auto;margin-right: auto;">
+    <div style="text-align:center;"><p class="lead">实时远程控制系统,支持视频监控、远程控制与SSH登录</p></div>
+</head>
+
+<body>
+
+<div>
+    <button type="button" class="btn btn-outline-dark"  onclick="startSession()" id="linkkvm">远程连接<i class="fas fa-sync"></i></button>
+</div>
+
+</body>
+<script src="./mqtt.min.js"></script>
+{{ template "cards" .}}
+</html>
+{{end}}

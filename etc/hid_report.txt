@@ -1,0 +1,95 @@
+
+我们先来解析鼠标的报告描述：
+
+0x05, 0x01, // Usage Page (Generic Desktop)
+
+0x04 代表是 Global 类的 Usage Page 功能，最位 2 位表示带多少个字节的数据，因为只带1 个数据，所以是 1，跟 0x04 组合起来就是 0x05 了。其他名称的意思都差不多，数值可以参照上一章的Generic Item Format
+
+0x09, 0x02, // Usage (Mouse)
+
+表示这是一个鼠标， Usage 是为了给对方解析数据时有个参照
+
+0xA1, 0x01, // Collection (Application)
+
+0xA1, 0x01 表示 CollectionApplication ; 0xA1, 0x00 表示 Collection Physical.表示下面所包含的是对 Mouse 的解释
+
+0x85, 0x01, // Report Id (1)
+
+该报告对应的 ID 是 1
+
+0x09, 0x01, // Usage (Pointer)
+
+这是个指针形式
+
+0xA1, 0x00, // Collection (Physical)
+
+下面所包含的是对指针的解释
+
+0x05, 0x09, // Usage Page (Buttons)
+
+下面定义的是按键
+
+0x19, 0x01, // Usage Minimum (01) - Button 1
+
+0x29, 0x03, // Usage Maximum (03) - Button 3
+
+总共有 3 个按键
+
+0x15, 0x00, // Logical Minimum (0)
+
+0x25, 0x01, // Logical Maximum (1)
+
+按键的值是 0 和 1，表示放开和按下
+
+0x75, 0x01, // Report Size (1)
+
+0x95, 0x03, // Report Count (3)
+
+有 3 个 1 位，即用 3bits 分别对应三个按键
+
+0x81, 0x02, // Input (Data, Variable,Absolute) - Button states
+
+将这三个位加入本报告的数据中，这三位是可读写的绝对值
+
+0x75, 0x05, // Report Size (5)
+
+0x95, 0x01, // Report Count (1)
+
+定义 1 个 5 位的数据
+
+0x81, 0x01, // Input (Constant) - Padding or Reserved bits
+
+将这个数据添加到本报告的数据中，主要是与前面 3 位组成一个字节，这 5 位是 Constant数据
+
+0x05, 0x01, // Usage Page (Generic Desktop)
+
+0x09, 0x30, // Usage (X)
+
+0x09, 0x31, // Usage (Y)
+
+0x09, 0x38, // Usage (Wheel)
+
+下面定义的是 X,Y,Wheel 三个功能
+
+0x15, 0x81, // Logical Minimum (-127)
+
+0x25, 0x7F, // Logical Maximum (127)
+
+X,Y,Wheel 的取值范围是-127~127
+
+0x75, 0x08, // Report Size (8)
+
+0x95, 0x03, // Report Count (3)
+
+用三个字节来表示 x,y,wheel
+
+0x81, 0x06, // Input (Data, Variable, Relative) - X & Y coordinate
+
+将这三个字节添加到本报告中
+
+0xC0, // End Collection
+
+0xC0, // End Collection
+————————————————
+版权声明：本文为CSDN博主「pig10086」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/pig10086/article/details/71438990

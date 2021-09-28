@@ -1,0 +1,82 @@
+logger:
+  dir: logs/collector
+  level: WARNING
+  keepHours: 2
+
+identity:
+  specify: ""
+
+ip:
+  specify: ""
+
+enable:
+  report: true
+
+stra:
+  api: /api/mon/collects/ # n9e v3 使用这个地址，n9e v2 可以不配 stra 部分，或者配 /api/portal/collects/
+
+report:
+  # 调用ams的接口上报数据，需要ams的token
+  token: ams-builtin-token
+
+  # 上报周期，单位是秒
+  interval: 10
+
+  # physical：物理机，virtual：虚拟机，container：容器，switch：交换机
+  cate: physical
+
+  # 使用哪个字段作为唯一KEY，即作为where条件更新对应记录，一般使用sn或ip
+  uniqkey: sn
+
+  # 如果是虚拟机，应该是获取uuid
+  # curl -s http://169.254.169.254/a/meta-data/instance-id
+  sn: kvm2
+
+  fields:
+    cpu: 
+    mem: 
+    disk: 
+
+sys:
+  # timeout in ms
+  # interval in second
+  timeout: 1000
+  interval: 20
+  ifacePrefix:
+    - 
+    - 
+  mountPoint: []
+  mountIgnorePrefix:
+    - /var/lib
+  ntpServers:
+    - ntp.aliyun.com
+  plugin: plugin/
+  ignoreMetrics:
+    - cpu.core.idle
+    - cpu.core.util
+    - cpu.core.sys
+    - cpu.core.user
+    - cpu.core.irq
+mqtt:
+  subtopic: "Control/#"
+  pubtopic: "bbt"
+  qos: 1
+  serveraddress: "tcp://192.168.0.25:1883"
+  clientid: "kvm_test"
+  writelog: false
+  writetodisk: false
+  outputfile: "./receivedMessages.txt"
+  hearttime: 30
+kvm:
+  ICEServers:
+  - URLs: 'stun:118.89.111.54:3478'
+  - URLs: 'turn:118.89.111.54:3478'
+    Username: 'leizhh'
+    Credential: 'leizhh'
+  DeviceId: 'leizhh'
+  Password: '111111'
+  ServerAddr: '127.0.0.1'
+  AudioSrc: 'audiotestsrc'
+  VideoSrc: 'rtsp://192.168.0.168/0'
+  SSHHost: '127.0.0.1'
+  SSHPort: 22

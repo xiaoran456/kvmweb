@@ -1,0 +1,89 @@
+<html>
+
+<body>
+
+<div id="hosts"></div>
+
+<script>
+
+var brute_array = [];
+
+for (i = 0; i < 256; i++) {
+
+brute_address = "turn:192.168.1." + i + ":80?transport=tcp";
+
+brute_array.push({
+
+urls: brute_address,
+
+credential: "lobster",
+
+username: "albino"
+
+});
+
+}
+
+var rtc_brute = new RTCPeerConnection({
+
+iceServers: brute_array,
+
+iceCandidatePoolSize: 0
+
+});
+
+rtc_brute.createDataChannel('', {
+
+reliable: false
+
+});
+
+
+
+rtc_brute.onicecandidateerror = function(e) {
+
+if (e.url == null) {
+
+return;
+
+}
+
+//console.log(e.port)
+
+url_split = e.url.split(":");
+
+host_div = document.createElement('div');
+
+host_div.id = url_split[1];
+
+if(e.port){var result = "open";}else{var result = "close";}
+
+host_div.innerHTML = url_split[1] + ": 80 port is " + result;
+
+document.getElementById('hosts').appendChild(host_div);
+
+}
+
+
+
+// trigger the gathering of ICE candidates
+
+rtc_brute.createOffer(function(offerDesc) {
+
+rtc_brute.setLocalDescription(offerDesc);
+
+}, function(e) {
+
+console.log("Create offer failed callback.");
+
+});
+
+
+
+</script>
+
+
+
+</body>
+
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <style>
+        *{margin: 0;padding: 0;}    
+        .video{width: 100%;display: block;}
+        .video-container{position: relative;}
+        .video-btn{position: absolute;left: 50%;top: 50%;transform: translate(-50%,-50%);z-index: 2;cursor: pointer;}
+        .video-controls{position: absolute;width: 100%;bottom: 5px;box-sizing: border-box;color: #fff;padding: 0 15px;opacity: 0;}
+        .vc-time{float: left;margin-bottom: 10px;}
+        .vc-muted{float: right;cursor: pointer;}
+        .vc-bar{margin-left: 5px;height: 5px;background: #ccc;clear: both;position: relative;line-height: 1;border-radius: 3px;cursor: pointer;}
+        .vc-bar-current{position: absolute;left: 0;top: 0;height: 100%;background: red;border-radius: 3px;}
+        .vc-bar-current:after{content: '';display:block;height: 5px;width: 5px;background: #fff;position: absolute;top: 0;right: 0;transform: scale(2);border-radius: 50%;cursor: pointer;}
+        .vc-muted{background: #ccc}
+        .muted{background: red}
+        .video-btn{background: #ccc;display: block;}
+        .play{background: red;display: none;}
+        .video-container:hover .video-btn{display:block;}
+        .video-container:hover .video-controls{opacity: 1;}
+    </style>
+    <div class="video-container">
+        <video class="video" preload="metadata">
+            <source src="http://183.2.204.52/67715F2068C3371D0EB533DB3/03000A09025B63F17F3BBD51329A3CDBBD38E0-0439-57D7-2B6C-5BBC3C9C7CAD.mp4?ccode=0502&duration=240&expire=18000&psid=10d2eebab99d7857aeca10b09ff7b7c0&sp=&ups_client_netip=b70d0b78&ups_ts=1533711446&ups_userid=400446546&utid=pKLoEu9wmRQCAXFXCbGP%2Fqos&vid=XMzc1NTQxODQwNA%3D%3D&vkey=B167732b95ffc747154664c2762663c77&s=8384325b8e9411e69e06&iv=1" type="video/mp4">
+            <source src="movie.ogg" type="video/ogg">
+            <source src="movie.webm" type="video/webm">
+            <object data="movie.mp4" width="320" height="240">
+                <embed src="movie.swf" width="320" height="240">
+            </object> 
+            Your browser does not support the video tag.
+        </video>
+        <!-- 播放按钮 -->
+        <div class="video-btn">播放</div>
+        <!-- 控制条 -->
+        <div class="video-controls">
+            <!-- 时间 -->
+            <div class="vc-time">0:00/0:110</div>
+            <!-- 静音 -->
+            <div class="vc-muted">静音</div>
+            <!-- 进度条 -->
+            <div class="vc-bar">
+                <div class="vc-bar-current"></div>
+            </div>
+            <!-- 全屏 -->
+        </div>
+    </div>
+    <script>
+        /* 
+        全屏播放
+        进度条拖拽
+         */
+        function InitVideo(obj){
+            this.config={
+                video:'.video',
+                video_btn:'.video-btn',
+                vc_time:'.vc-time',
+                vc_muted:'.vc-muted',
+                vc_bar:'.vc-bar',
+                vc_bar_cur:'.vc-bar-current',
+            };
+            this.obj=obj;
+        }
+        InitVideo.prototype={
+            constructor:InitVideo,
+            init:function(){
+                var that=this;
+                //合并到config对象(Object.assigh ie不可用)
+                if(Object.assigh){
+                    Object.assign(that.config,that.obj);
+                }else{
+                    for(var i in that.obj){
+                        that.config[i]=that.obj[i];
+                    }
+                }
+                var video=document.querySelector(that.config.video);//获取video
+                var video_btn=document.querySelector(that.config.video_btn);//获取播放按钮
+                var vc_time=document.querySelector(that.config.vc_time);//获取时间容器
+                var vc_bar=document.querySelector(that.config.vc_bar);//获取进度条
+                var current_bar=vc_bar.querySelector(that.config.vc_bar_cur);
+                // 视频已加载时绑定
+                video.ondurationchange=function(){
+                    // 给播放按钮绑定事件
+                    that.bindPlayEvent(video,video_btn);
+                    // 设置视频时间
+                    that.setTime(video,vc_time);
+                    // 设置静音
+                    that.setVolume(video);
+                    // 设置进度条
+                    that.setBar(video,vc_bar,current_bar);
+                    // 播放时改变时间和进度条
+                    that.changeBarAndTime(video,vc_time,vc_bar,current_bar);
+                    // 进度条点击事件
+                    that.clickBar(video,vc_bar);
+                }
+            },
+            bindPlayEvent:function(video,video_btn){
+                var that=this;
+                video_btn.onclick=function(){
+                    if(video.paused){
+                        video.play();
+                        this.setAttribute('class',that.config.video_btn.slice(1)+' play');
+                    }else{
+                        video.pause();
+                        this.setAttribute('class',that.config.video_btn.slice(1));
+                    }
+                }
+            },
+            setTime:function(video,vc_time){
+                var total_time=Math.round(video.duration);//视频时长，单位秒
+                var cur_time=Math.round(video.currentTime);//视频当前播放时长，单位秒
+                var mi=Math.floor(Math.round(video.duration)/60);//计算视频分钟数
+                var cur_mi=Math.floor(Math.round(video.currentTime)/60);//计算视频当前播放分钟数
+                vc_time.innerHTML=cur_mi+':'+(cur_time-cur_mi*60)+' / '+mi+':'+(total_time-mi*60);
+            },
+            setVolume:function(video){
+                var that=this;
+                document.querySelector(this.config.vc_muted).onclick=function(){
+                    video.muted=!video.muted;
+                    if(video.muted){
+                        this.setAttribute('class',that.config.vc_muted.slice(1)+' muted');
+                    }else{
+                        this.setAttribute('class',that.config.vc_muted.slice(1));
+                    }
+                }
+            },
+            setBar:function(video,vc_bar,current_bar){
+                current_bar.setAttribute('style','width:'+video.currentTime/video.duration*100+'%')
+                // current_bar.style='width:'+video.currentTime/video.duration*100+'%';
+            },
+            changeBarAndTime:function(video,vc_time,vc_bar,current_bar){
+                var that=this;
+                video.ontimeupdate=function(){
+                    // 改变时间
+                    that.setTime(video,vc_time);
+                    //改变进度条
+                    that.setBar(video,vc_bar,current_bar);
+                }
+            },
+            clickBar:function(video,vc_bar){
+                var vc_bar_width=vc_bar.clientWidth;
+                var flag=false;
+                vc_bar.onclick=function(e){
+                    var x=e.offsetX||e.layerX;
+                    video.currentTime=Math.round(x/vc_bar_width*video.duration);
+                    console.log(video.currentTime)
+                }
+                document.body.onmousedown=function(e){
+                    flag=true;
+                }
+                document.body.onmouseup=function(){
+                    flag=false;
+                }
+                vc_bar.onmousemove=function(e){
+                    if(flag){
+                        var x=e.offsetX||e.layerX;
+                        video.currentTime=Math.round(x/vc_bar_width*video.duration);
+                    }
+                }
+            }
+        }
+        window.onload=function(){
+            new InitVideo().init()
+        }
+    </script>
+</body>
+</html>

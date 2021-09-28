@@ -1,0 +1,80 @@
+<html lang="en">
+<head>
+    <title>rtsp-bench</title>
+</head>
+
+<body>
+<h3><a href="index.html">Video</a></h3>
+<div id="remoteVideos"></div>
+<br/>
+
+<div>
+    <button onclick="window.doSignaling(true)"> ICE Restart (reconnect)</button>
+</div>
+
+<h3> Logs </h3>
+<div id="logs"></div>
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
+<script>
+     // Create a client instance
+    mqttclient = new Paho.MQTT.Client("39.98.198.244", 1883, "clientId");
+
+// set callback handlers
+    mqttclient.onConnectionLost = onConnectionLost;
+    mqttclient.onMessageArrived = onMessageArrived;
+
+// connect the client
+    mqttclient.connect({onSuccess:onConnect});    
+    let pc = new RTCPeerConnection()
+    pc.addTransceiver('video')
+
+    let log = msg => {
+        document.getElementById('logs').innerHTML += msg + '<br>'
+    }
+    pc.oniceconnectionstatechange = () => log(pc.iceConnectionState)
+    pc.ontrack = function (event) {
+        let el = document.createElement(event.track.kind)
+        el.srcObject = event.streams[0]
+        el.autoplay = true
+        el.controls = true
+
+        document.getElementById('remoteVideos').appendChild(el)
+    }
+
+// called when the client connects
+    function onConnect() {
+// Once a connection has been made, make a subscription and send a message.
+        console.log("onConnect");
+        mqttclient.subscribe("BBT/#");
+        message = new Paho.MQTT.Message("Hello from websocket!!");
+        message.destinationName = "Control";
+        mqttclient.send(message);
+        }
+
+// called when the client loses its connection
+    function onConnectionLost(responseObject) {
+        if (responseObject.errorCode !== 0) {
+            console.log("onConnectionLost:"+responseObject.errorMessage);
+        }
+    }
+
+// called when a message arrives
+    function onMessageArrived(message) {
+        console.log("onMessageArrived:"+message.payloadString);
+        pc.setRemoteDescription(message.json())
+    }
+
+    window.doSignaling = iceRestart => {
+        pc.createOffer({iceRestart})
+            .then(offer => {
+                pc.setLocalDescription(offer)
+                message =new Paho.MQTT.Message({
+                  "seqid":2,
+                  "iceserver":"",
+                });
+                mqttclient.send(message);
+            })
+    }
+</script>
+</html>

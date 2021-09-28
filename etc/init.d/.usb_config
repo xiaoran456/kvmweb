@@ -1,0 +1,6 @@
+#usb_adb_en
+usb_ums_en
+ums_block=/userdata/ums_shared.img
+usb_hidkey_en
+usb_hidmouse_en
+usb_rndis_en
